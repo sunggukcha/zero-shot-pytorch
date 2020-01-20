@@ -23,6 +23,11 @@ def get_args():
 	
 	parser.add_argument('--task', type=str, default='classification',
                             choices=['classification', 'segmentation'])
+	parser.add_argument('--ignore-index', type=int, default=-100)
+	parser.add_argument('--test-set', type=str, default='unseen',
+						help='"unseen" for Zero-shot\n \
+							"all" for generalized Zero-shot',
+							choices=['unseen', 'all'])
 
 	# external params
 	parser.add_argument('--seed', type=int, default=1,
@@ -39,22 +44,27 @@ def get_args():
 						help='Number of workers for dataloader')
 
 	# training options
-	parser.add_argument('--dataset', type=str, default='caltech101')
-	parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
-                    help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: resnet18)')
+	parser.add_argument('--dataset', type=str, default='pascal')
+	parser.add_argument('--backbone', type=str, default='resnet18')
+	parser.add_argument('--model', type=str, default=None)
+	parser.add_argument('--norm', type=str, default='bn')
+	parser.add_argument('--output-stride', type=int, default=16)
+	parser.add_argument('--dimension', type=int, default=300)
+
 	parser.add_argument('--pretrained', default=True, action='store_false',
 						help='True if load pretrained model')
 	parser.add_argument('--ft', type=bool, default=None,
 						help='True if finetune')
-	parser.add_argument('--resume', type=str, default=None)
 	parser.add_argument('--test', default=False, action='store_true',
 						help='True if test mode')
 	parser.add_argument('--start-epoch', type=int, default=0)
 	parser.add_argument('--no-val', type=bool, default=False,
 						help='True if train without validation')
 	parser.add_argument('--time', default=False, action='store_true')
+
+	# loading checkpoints
+	parser.add_argument('--classifier', type=str, default=None)
+	parser.add_argument('--resume', type=str, default=None)
 	
 	# hyper params
 	parser.add_argument('--lr', type=float, default=None,

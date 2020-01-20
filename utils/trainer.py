@@ -38,11 +38,15 @@ class Trainer(object):
 		# Define Network
 		model = Model(args, self.nclass)
 		
-		train_params = [{'params': model.parameters(), 'lr': args.lr}]
+		if args.model == None:
+			train_params = [{'params': model.parameters(), 'lr': args.lr}]
+		elif 'deeplab' in args.model:
+			train_params = [{'params': model.backbone.parameters(), 'lr': args.lr},
+							{'params': model.deeplab.parameters(), 'lr': args.lr * 10}]
 		
 		# Define Optimizer
 		optimizer = torch.optim.SGD(train_params, momentum=args.momentum, weight_decay=args.weight_decay)
-		criterion = nn.CrossEntropyLoss()
+		criterion = nn.CrossEntropyLoss(ignore_index=args.ignore_index)
 
 		self.model, self.optimizer, self.criterion = model, optimizer, criterion
 
@@ -53,6 +57,23 @@ class Trainer(object):
 		if args.cuda:
 			self.model = torch.nn.DataParallel(self.model, device_ids=self.args.gpu_ids)
 			self.model = self.model.cuda()
+
+		# Loading Classifier (SPNet style)
+		if args.classifier is None:
+            raise NotImplementedError("Classifier should be loaded")
+        else:
+            if not os.path.isfile(args.classifier):
+                raise RuntimeError("=> no checkpoint for clasifier found at '{}'".format(args.classifier))
+            checkpoint = torch.load(args.classifier)
+            s_dict = checkpoint['state_dict']
+            model_dict = {}
+            state_dict = self.classifier.state_dict()
+            for k, v in s_dict.items():
+                if k in state_dict:
+                    model_dict[k] = v
+            state_dict.update(model_dict)
+            self.classifier.load_state_dict(state_dict)
+            print("Classifier checkpoint successfully loaded from {}".format(args.classifier))
 
 		# Resuming checkpoint
 		self.best_pred = 0.0
@@ -125,7 +146,7 @@ class Trainer(object):
 		tbar = tqdm(self.val_loader, desc='\r')
 		test_loss = 0.0
 		for i, sample in enumerate(tbar):
-			images, targets = sample['image'].cuda(), sample['label'].cuda()
+			images, targets, names = sample['image'].cuda(), sample['label'].cuda(), sample['name']
 			with torch.no_grad():
 				outputs = self.model(images)
 			loss = self.criterion(outputs, targets)
@@ -133,14 +154,12 @@ class Trainer(object):
 
 			# Score record
 			if self.args.task == 'classification':
-				acc1, acc5 = accuracy(output, target, topk=(1, 5))
+				acc1, acc5 = accuracy(outputs, targets, topk=(1, 5))
 				top1.update(acc1[0], image.size(0))
 				top5.update(acc5[0], image.size(0))
 			elif self.args.task == 'segmentation':
-				preds = outputs.data.cpu().numpy()
-				preds = np.argmax(preds, axis=1)
-				targets = targets.cpu().numpy()
-				evaluator.add_batch(targets, preds)
+				preds = torch.argmax(outputs, axis=1)
+				evaluator.add_batch(targets.cpu().numpy(), preds.cpu().numpy())
 				if self.args.id:
 					self.vs.predict_id(preds, names, self.args.save_dir)
 				if self.args.color:

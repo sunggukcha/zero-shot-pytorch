@@ -89,18 +89,14 @@ class Visualize(object):
 			result.save(saveas)
 	
 	def predict_color(self, preds, origins, names, save_dir='./'):
-		origins = self.restore(origins)
+		preds = preds.cpu().numpy()
+		origins = self.restore(origins).cpu().numpy()
 		for i in range(len(preds)):
 			pred	= preds[i]
 			origin	= origins[i]
 			name	= names[i]
 			saveas	= os.path.join(save_dir, name)
 			origin	= origins[i]
-			if pred.shape != origin.shape:
-				pred = Image.fromarray(pred.astype('uint8'))
-				pred = pred.resize( origin.shape[:2], Image.NEAREST )
-				pred = np.asarray(pred)
-				if 'pascal' in self.dataset: pred = pred.swapaxes(0, 1)
 			img	= np.array(self.palette[pred.squeeze()])
 			result	= np.array(np.zeros(origin.shape))
 			#result[pred==0] = origin[pred==0]
@@ -110,13 +106,16 @@ class Visualize(object):
 			result	= Image.fromarray(result.astype('uint8'), 'RGB')
 			result.save(saveas)
 
-	def predict_examine(preds, targets, origins, names, save_dir='./'):
+	def predict_examine(self, preds, targets, origins, names, save_dir='./'):
+		targets = targets.cpu().numpy()
+		preds = preds.cpu().numpy()
+		origins = self.restore(origins)
 		for i in range(len(preds)):
 			pred	= preds[i]
 			target	= targets[i]
 			origin	= origins[i]
-			saveas	= os.path.join(save_dir, filename)
-			origin	= self.restore(origin)
+			name	= names[i]
+			saveas	= os.path.join(save_dir, name)
 			result	= np.array(np.zeros(pred.shape))
 			result	= origin
 			_correct	= np.multiply(pred!=0, pred==target)

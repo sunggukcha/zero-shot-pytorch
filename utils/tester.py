@@ -75,7 +75,7 @@ class Tester(object):
 			with torch.no_grad():
 				output = self.model(images)
 
-			preds = torch.argmax(output, dim=1)
+			preds = np.argmax(preds, dim=1)
 
 			if self.args.id:
 				self.vs.predict_id(preds, names, self.args.save_dir)
