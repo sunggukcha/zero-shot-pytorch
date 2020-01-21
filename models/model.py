@@ -6,10 +6,8 @@ import torch.nn.functional as F
 import torchvision.models as models
 
 class Model(nn.Module):
-	def __init__(self, args, nclass):
+	def __init__(self, args, train_class, test_class):
 		super(Model, self).__init__()
-
-		self.nclass = nclass
 
 		if args.model == None: # Classification
 			self.model = models.__dict__[args.bacbkone](pretrained=args.pretrained)
@@ -18,7 +16,8 @@ class Model(nn.Module):
 		elif 'deeplab' in args.model:
 			self.model = build_deeplab(args)
 
-		self.classifier = Classifier(args.dimension, nclass)
+		self.classifier_train = Classifier(args.dimension, train_class)
+		self.classifier_test = Classifier(args.dimension, test_class)
 
 	def forward(self, input):
 		x = self.model(input)

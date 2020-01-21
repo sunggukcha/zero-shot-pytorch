@@ -45,4 +45,5 @@ Deep base ResNet + DeeplabV2 + SPNet is supported.
 ### References
 
 \[1]: http://openaccess.thecvf.com/content_CVPR_2019/papers/Xian_Semantic_Projection_Network_for_Zero-_and_Few-Label_Semantic_Segmentation_CVPR_2019_paper.pdf
+
 \[2]: https://fasttext.cc/docs/en/english-vectors.html

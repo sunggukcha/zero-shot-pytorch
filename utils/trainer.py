@@ -29,14 +29,14 @@ class Trainer(object):
 
 		# Define Dataloader
 		kwargs = {'num_workers': args.workers, 'pin_memory': True}
-		self.train_loader, self.val_loader, self.test_loader, self.nclass = make_data_loader(args, **kwargs)
+		self.train_loader, self.val_loader, self.test_loader, self.classes = make_data_loader(args, **kwargs)
 	
 		if self.args.task == 'segmentation':
 			self.vs = Vs(args.dataset)
 			self.evaluator = Evaluator(self.nclass)
 
 		# Define Network
-		model = Model(args, self.nclass)
+		model = Model(args, self.train_loader.NUM_CLASSES, self.test_loader.NUM_CLASSES)
 		
 		if args.model == None:
 			train_params = [{'params': model.parameters(), 'lr': args.lr}]
