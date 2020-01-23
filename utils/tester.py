@@ -2,11 +2,11 @@ from dataloaders import make_data_loader
 from models.model import Model
 from tqdm import tqdm
 from utils.lr_scheduler import LR_Scheduler
-from utils.metrics_cls import *
-from utils.metrics_seg import *
+from utils.metric_cls import *
+from utils.metric_seg import *
 from utils.saver import Saver
 from utils.summaries import TensorboardSummary
-from utiuls.visualize import Visualize as Vs
+from utils.visualize import Visualize as Vs
 
 import numpy as np
 import os

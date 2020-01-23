@@ -29,14 +29,14 @@ class Trainer(object):
 
 		# Define Dataloader
 		kwargs = {'num_workers': args.workers, 'pin_memory': True}
-		self.train_loader, self.val_loader, self.test_loader, self.classes = make_data_loader(args, **kwargs)
+		self.train_loader, self.val_loader, self.test_loader, self.nclasses = make_data_loader(args, **kwargs)
 	
 		if self.args.task == 'segmentation':
 			self.vs = Vs(args.dataset)
-			self.evaluator = Evaluator(self.nclass)
+			self.evaluator = Evaluator(self.nclasses['val'])
 
 		# Define Network
-		model = Model(args, self.train_loader.NUM_CLASSES, self.test_loader.NUM_CLASSES)
+		model = Model(args, self.nclasses['train'], self.nclasses['val'])
 		
 		if args.model == None:
 			train_params = [{'params': model.parameters(), 'lr': args.lr}]
@@ -60,20 +60,20 @@ class Trainer(object):
 
 		# Loading Classifier (SPNet style)
 		if args.classifier is None:
-            raise NotImplementedError("Classifier should be loaded")
-        else:
-            if not os.path.isfile(args.classifier):
-                raise RuntimeError("=> no checkpoint for clasifier found at '{}'".format(args.classifier))
-            checkpoint = torch.load(args.classifier)
-            s_dict = checkpoint['state_dict']
-            model_dict = {}
-            state_dict = self.classifier.state_dict()
-            for k, v in s_dict.items():
-                if k in state_dict:
-                    model_dict[k] = v
-            state_dict.update(model_dict)
-            self.classifier.load_state_dict(state_dict)
-            print("Classifier checkpoint successfully loaded from {}".format(args.classifier))
+			raise NotImplementedError("Classifier should be loaded")
+		else:
+			if not os.path.isfile(args.classifier):
+				raise RuntimeError("=> no checkpoint for clasifier found at '{}'".format(args.classifier))
+			checkpoint = torch.load(args.classifier)
+			s_dict = checkpoint['state_dict']
+			model_dict = {}
+			state_dict = self.classifier.state_dict()
+			for k, v in s_dict.items():
+				if k in state_dict:
+					model_dict[k] = v
+			state_dict.update(model_dict)
+			self.classifier.load_state_dict(state_dict)
+			print("Classifier checkpoint successfully loaded from {}".format(args.classifier))
 
 		# Resuming checkpoint
 		self.best_pred = 0.0
@@ -135,7 +135,7 @@ class Trainer(object):
 				)
 
 	def val(self, epoch):
-		if self.args.task == 'classification:
+		if self.args.task == 'classification':
 			top1 = AverageMeter('Acc@1', ':6.2f')
 			top5 = AverageMeter('Acc@5', ':6.2f')
 		elif self.args.task == 'segmentation':

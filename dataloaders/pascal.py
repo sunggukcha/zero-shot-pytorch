@@ -2,6 +2,7 @@ from __future__ import print_function, division
 
 import numpy as np
 import os
+import platform
 
 from PIL import Image
 from torch.utils.data import Dataset
@@ -14,6 +15,16 @@ classes = {
     "unseen": [16, 17, 18, 19, 20],
     "all": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 }
+
+def PathJoin(*args):
+    if "Windows" in platform.platform():
+        res = ""
+        for arg in args:
+            res += arg
+        return res
+    else:
+        return os.path.join(*args)
+        
 
 class VOCSegmentation(Dataset):
     """
@@ -38,11 +49,11 @@ class VOCSegmentation(Dataset):
         self.NUM_CLASSES = len(classes[csplit]) + 1
 
         self._base_dir = base_dir
-        _splits_dir = os.path.join(self._base_dir, 'ImageSets', 'Segmentation')
+        _splits_dir = PathJoin(self._base_dir, '/ImageSets', '/Segmentation')
         
         if 'aug' not in split:
-            self._image_dir = os.path.join(self._base_dir, 'JPEGImages')
-            self._label_dir = os.path.join(self._base_dir, 'SegmentationClass')
+            self._image_dir = PathJoin(self._base_dir, '/JPEGImages')
+            self._label_dir = PathJoin(self._base_dir, '/SegmentationClass')
             self.aug = False
         else:
             self.aug = True
@@ -66,16 +77,16 @@ class VOCSegmentation(Dataset):
         for i in range(len(forward)):
             self.reverse[i+1] = forward[i]
         '''
-
+        if 'Windows' in platform.platform(): split = "/" + split
         if self.aug:
-            with open(os.path.join(_splits_dir, split + '.txt'), "r") as f:
+            with open(PathJoin(_splits_dir, split + '.txt'), "r") as f:
                 lines = f.read().splitlines()
             
             for line in lines:
                 L1 = line.split(" ")[0]
                 L2 = line.split(" ")[1]
-                _image = os.path.join(self._base_dir, L1)
-                _label = os.path.join(self._base_dir, L2)
+                _image = PathJoin(self._base_dir, L1)
+                _label = PathJoin(self._base_dir, L2)
                 _name  = L2.split("/")[-1]
                 assert os.path.isfile(_image)
                 assert os.path.isfile(_label)
@@ -84,12 +95,13 @@ class VOCSegmentation(Dataset):
                 self.names.append(_name)
 
         else:
-            with open(os.path.join(_splits_dir, split + '.txt'), "r") as f:
+            with open(PathJoin(_splits_dir, split + '.txt'), "r") as f:
                 lines = f.read().splitlines()
             
             for line in lines:
-                _image = os.path.join(self._image_dir, line + ".jpg")
-                _label = os.path.join(self._label_dir, line + ".png")
+                if 'Windows' in platform.platform(): line = '/' + line
+                _image = PathJoin(self._image_dir, line + ".jpg")
+                _label = PathJoin(self._label_dir, line + ".png")
                 _name  = line + ".png"
                 assert os.path.isfile(_image)
                 assert os.path.isfile(_label)

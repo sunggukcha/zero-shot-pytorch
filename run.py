@@ -93,7 +93,10 @@ if __name__ == "__main__":
 			raise ValueError('Argument --gpu_ids must be a comma-separated list of integers only')
 	
 	if args.checkname == None:
-		args.checkname = args.arch
+		if args.model is not None:
+			args.checkname = args.model + "-" + args.backbone
+		else:
+			args.checkname = args.backbone
 
 	print(args)
 	torch.manual_seed(args.seed)

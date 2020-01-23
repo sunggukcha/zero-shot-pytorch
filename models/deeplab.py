@@ -30,13 +30,9 @@ def build_deeplab(args):
 
 class DeepLab(nn.Module):
     def __init__(self, args):
-        super(DeepLab, self).__init__()
-        self.args = args
-
-        self.backbone = build_backbone(args)
+        super(DeepLab, self).__init__()        
         self.deeplab = build_deeplab(args)
 
-    def forward(self, x):
-        x, low_level_feat = self.backbone(x)
+    def forward(self, x, low_level_feat):
         x = self.deeplab(x, low_level_feat)
         return x

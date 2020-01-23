@@ -1,3 +1,4 @@
+from models.backbone import build_backbone
 from models.classifier import Classifier
 from models.deeplab import build_deeplab
 import torch
@@ -10,16 +11,20 @@ class Model(nn.Module):
 		super(Model, self).__init__()
 
 		if args.model == None: # Classification
-			self.model = models.__dict__[args.bacbkone](pretrained=args.pretrained)
-			final_feature = self.model.fc.in_features
-			self.model.fc = nn.Linear(final_feature, args.dimension)
+			self.backbone = models.__dict__[args.bacbkone](pretrained=args.pretrained)
+			final_feature = self.backbone.fc.in_features
+			self.backbone.fc = nn.Linear(final_feature, args.dimension)
+			self.deeplab = None
 		elif 'deeplab' in args.model:
-			self.model = build_deeplab(args)
+			self.backbone = build_backbone(args)
+			self.deeplab = build_deeplab(args)
 
 		self.classifier_train = Classifier(args.dimension, train_class)
 		self.classifier_test = Classifier(args.dimension, test_class)
 
 	def forward(self, input):
-		x = self.model(input)
+		x, low_level_feat = self.backbone(input)
+		if self.deeplab is not None:
+			x = self.deeplab(x, low_level_feat)
 		x = self.classifier(x)
 		return x

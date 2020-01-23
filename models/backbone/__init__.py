@@ -3,7 +3,7 @@ import torch.nn as nn
 
 def build_backbone(args):
     backbone = args.backbone
-    output_stride = args.out_stride
+    output_stride = args.output_stride
 
     # normalization
     if 'bn' == args.norm:

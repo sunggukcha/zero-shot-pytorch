@@ -19,4 +19,5 @@ bs=1
 #
 #
 #
+clear
 python -W ignore run.py --task $task --ignore $ignore --dataset $dataset --test-set $test_set --backbone $backbone --model $model --lr $lr --epoch $epoch --batch-size $bs
