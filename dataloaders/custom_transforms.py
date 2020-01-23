@@ -89,6 +89,16 @@ class MaskIgnores(object):
         for ig in self.ignores:
             label[label == ig] = self.mask
         return {'image': sample['image'], 'label': label, 'name': sample['name']}
+
+class ReMask(object):
+    def __init__(self, remap):
+        self.remap=remap
+    def __call__(self, sample):
+        label = sample['label']
+        label = np.array(label).astype(np.int32)
+        for prev in self.remap.keys():
+            label[label == prev] = self.remap[prev]
+        return {'image': sample['image'], 'label': label, 'name': sample['name']}
         
 #
 # 

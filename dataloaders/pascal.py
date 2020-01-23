@@ -138,13 +138,20 @@ class VOCSegmentation(Dataset):
         return composed_transforms(sample)
 
     def transform_val(self, sample):
-        if self.csplit == 'all': ignores=[]
-        elif self.csplit == 'unseen': ignores=classes['seen']
-        elif self.csplit == 'seen': ignores=classes['unseen']
+        if self.csplit == 'all':
+            ignores=[]
+            remap={}
+        elif self.csplit == 'unseen':
+            ignores=classes['seen']
+            remap={16:1, 17:2, 18:3, 19:4, 20:5}
+        elif self.csplit == 'seen':
+            ignores=classes['unseen']
+            remap={}
         else: raise RuntimeError("{} ???".format(self.csplit))
         composed_transforms = transforms.Compose([
 #            tr.FixScaleCrop(crop_size=self.args.crop_size),
             tr.MaskIgnores(ignores=ignores,mask=0),
+            tr.ReMask(remap=remap),
             tr.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), seg=True),
             tr.ToTensor()])
 
