@@ -155,21 +155,33 @@ def get_model_file(name, root=os.path.join('~', '.encoding', 'models')):
 # Torch ResNet
 
 class Bottleneck(nn.Module):
+    """ResNet Bottleneck
+    """
+    # pylint: disable=unused-argument
     expansion = 4
-
-    def __init__(self, inplanes, planes, stride=1, dilation=1, downsample=None, norm=None):
+    def __init__(self, inplanes, planes, stride=1, dilation=1,
+                 downsample=None, previous_dilation=1, norm_layer=None):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
-        self.bn1 = norm(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
-                               dilation=dilation, padding=dilation, bias=False)
-        self.bn2 = norm(planes)
-        self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
-        self.bn3 = norm(planes * 4)
+        self.bn1 = norm_layer(planes)
+        self.conv2 = nn.Conv2d(
+            planes, planes, kernel_size=3, stride=stride,
+            padding=dilation, dilation=dilation, bias=False)
+        self.bn2 = norm_layer(planes)
+        self.conv3 = nn.Conv2d(
+            planes, planes * 4, kernel_size=1, bias=False)
+        self.bn3 = norm_layer(planes * 4)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
-        self.stride = stride
         self.dilation = dilation
+        self.stride = stride
+
+    def _sum_each(self, x, y):
+        assert(len(x) == len(y))
+        z = []
+        for i in range(len(x)):
+            z.append(x[i]+y[i])
+        return z
 
     def forward(self, x):
         residual = x
@@ -194,78 +206,105 @@ class Bottleneck(nn.Module):
         return out
 
 class ResNet(nn.Module):
-
-    def __init__(self, arch, block, layers, output_stride, norm, pretrained=True):
+    """Dilated Pre-trained ResNet Model, which preduces the stride of 8 featuremaps at conv5.
+    Parameters
+    ----------
+    block : Block
+        Class for the residual block. Options are BasicBlockV1, BottleneckV1.
+    layers : list of int
+        Numbers of layers in each block
+    classes : int, default 1000
+        Number of classification classes.
+    dilated : bool, default False
+        Applying dilation strategy to pretrained ResNet yielding a stride-8 model,
+            => changed to stride 16 config 
+        typically used in Semantic Segmentation.
+    norm_layer : object
+        Normalization layer used in backbone network (default: :class:`mxnet.gluon.nn.BatchNorm`;
+        for Synchronized Cross-GPU BachNormalization).
+    Reference:
+        - He, Kaiming, et al. "Deep residual learning for image recognition." Proceedings of the IEEE conference on computer vision and pattern recognition. 2016.
+        - Yu, Fisher, and Vladlen Koltun. "Multi-scale context aggregation by dilated convolutions."
+    """
+    # pylint: disable=unused-variable
+    # def __init__(self, arch, block, layers, output_stride, norm, pretrained=True):
+    def __init__(self, block, layers, dilated=True, multi_grid=False, deep_base=True, norm_layer=nn.BatchNorm2d):
+        self.inplanes = 128 if deep_base else 64
         super(ResNet, self).__init__()
-        self.arch = arch
-        self.inplanes = 64
-        blocks = [1, 2, 4]
-        if output_stride == 16:
-            strides = [1, 2, 2, 1]
-            dilations = [1, 1, 1, 2]
-        elif output_stride == 8:
-            strides = [1, 2, 1, 1]
-            dilations = [1, 1, 2, 4]
+        if deep_base:
+            self.conv1 = nn.Sequential(
+                nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1, bias=False),
+                norm_layer(64),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=False),
+                norm_layer(64),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, bias=False),
+            )
         else:
-            raise NotImplementedError
-
-        # Modules
-        self.conv1 = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1, bias=False),
-            norm(64),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=False),
-            norm(64),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, bias=False),
-        )
-        self.bn1 = norm(128)
+            self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+                                   bias=False)
+        self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.layer1 = self._make_layer(block, 64, layers[0], norm_layer=norm_layer)
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2, norm_layer=norm_layer)
+        if dilated:
+            self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
+                                           dilation=1, norm_layer=norm_layer)
+            if multi_grid:
+                self.layer4 = self._make_layer(block, 512, layers[3], stride=1,
+                                               dilation=4, norm_layer=norm_layer,
+                                               multi_grid=True)
+            else:
+                self.layer4 = self._make_layer(block, 512, layers[3], stride=1,
+                                               dilation=2, norm_layer=norm_layer)
+        else:
+            self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
+                                           norm_layer=norm_layer)
+            self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
+                                           norm_layer=norm_layer)
+        
 
-        self.layer1 = self._make_layer(block, 64, layers[0], stride=strides[0], dilation=dilations[0], norm=norm)
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=strides[1], dilation=dilations[1], norm=norm)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=strides[2], dilation=dilations[2], norm=norm)
-        self.layer4 = self._make_MG_unit(block, 512, blocks=blocks, stride=strides[3], dilation=dilations[3], norm=norm)
-        # self.layer4 = self._make_layer(block, 512, layers[3], stride=strides[3], dilation=dilations[3], norm=norm)
-        self._init_weight()
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+            elif isinstance(m, norm_layer):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
 
-        if pretrained:
-            self._load_pretrained_model()
-
-    def _make_layer(self, block, planes, blocks, stride=1, dilation=1, norm=None):
+    def _make_layer(self, block, planes, blocks, stride=1, dilation=1, norm_layer=None, multi_grid=False):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
                 nn.Conv2d(self.inplanes, planes * block.expansion,
                           kernel_size=1, stride=stride, bias=False),
-                norm(planes * block.expansion),
+                norm_layer(planes * block.expansion),
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, dilation, downsample, norm))
+        multi_dilations = [4, 8, 16]
+        if multi_grid:
+            layers.append(block(self.inplanes, planes, stride, dilation=multi_dilations[0],
+                                downsample=downsample, previous_dilation=dilation, norm_layer=norm_layer))
+        elif dilation == 1 or dilation == 2:
+            layers.append(block(self.inplanes, planes, stride, dilation=1,
+                                downsample=downsample, previous_dilation=dilation, norm_layer=norm_layer))
+        elif dilation == 4:
+            layers.append(block(self.inplanes, planes, stride, dilation=2,
+                                downsample=downsample, previous_dilation=dilation, norm_layer=norm_layer))
+        else:
+            raise RuntimeError("=> unknown dilation size: {}".format(dilation))
+
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes, dilation=dilation, norm=norm))
-
-        return nn.Sequential(*layers)
-
-    def _make_MG_unit(self, block, planes, blocks, stride=1, dilation=1, norm=None):
-        downsample = None
-        if stride != 1 or self.inplanes != planes * block.expansion:
-            downsample = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
-                norm(planes * block.expansion),
-            )
-
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, dilation=blocks[0]*dilation,
-                            downsample=downsample, norm=norm))
-        self.inplanes = planes * block.expansion
-        for i in range(1, len(blocks)):
-            layers.append(block(self.inplanes, planes, stride=1,
-                                dilation=blocks[i]*dilation, norm=norm))
+            if multi_grid:
+                layers.append(block(self.inplanes, planes, dilation=multi_dilations[i],
+                                    previous_dilation=dilation, norm_layer=norm_layer))
+            else:
+                layers.append(block(self.inplanes, planes, dilation=dilation, previous_dilation=dilation,
+                                    norm_layer=norm_layer))
 
         return nn.Sequential(*layers)
 
@@ -312,4 +351,7 @@ def build_ResNet(args, Norm):
         'resnet101': [3, 4, 23, 3],
         'resnet152': [3, 8, 36, 3],
     }
-    return ResNet(args.backbone, Bottleneck, layers[args.backbone], args.output_stride, Norm, pretrained=args.pretrained)
+    model = ResNet(Bottleneck, layers[args.backbone], norm_layer=Norm)
+    if args.pretrained:
+        model.load_state_dict(torch.load(get_model_file(args.backbone)), strict=False)
+    return model

@@ -22,9 +22,18 @@ class Model(nn.Module):
 		self.classifier_train = Classifier(args.dimension, train_class)
 		self.classifier_test = Classifier(args.dimension, test_class)
 
-	def forward(self, input):
+	def forward(self, input, train=True):
 		x, low_level_feat = self.backbone(input)
 		if self.deeplab is not None:
-			x = self.deeplab(x, low_level_feat)
-		x = self.classifier(x)
+			x = self.deeplab(x, low_level_feat, input.shape)
+		if train:
+			x = self.classifier_train(x)
+		else:
+			x = self.classifier_test(x)
 		return x
+
+	def load_train(self, cseen):
+		self.classifier_train.load_state_dict(torch.load(cseen))
+
+	def load_test(self, ctest):
+		self.classifier_test.load_state_dict(torch.load(ctest))

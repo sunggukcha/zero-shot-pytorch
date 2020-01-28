@@ -8,11 +8,19 @@ from utils.saver import Saver
 from utils.summaries import TensorboardSummary
 from utils.visualize import Visualize as Vs
 
+import cv2
 import numpy as np
 import os
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torchvision.models as models
+
+def resize_target(target, size):
+    new_target = np.zeros((target.shape[0], size, size), np.int32)
+    for i, t in enumerate(target.numpy()):
+        new_target[i, ...] = cv2.resize(t, (size,) * 2, interpolation=cv2.INTER_NEAREST)
+    return torch.from_numpy(new_target).long()
 
 class Trainer(object):
 	def __init__(self, args):
@@ -53,27 +61,30 @@ class Trainer(object):
 		# Define lr scheduler
 		self.scheduler = LR_Scheduler(args.lr_scheduler, args.lr, args.epochs, len(self.train_loader))
 
+
+		# Loading Classifier (SPNet style)
+		if args.call is None or args.cseen is None or args.cunseen is None:
+			raise NotImplementedError("Classifiers for 'all', 'seen', 'unseen' should be loaded")
+		else:
+			if not os.path.isfile(args.cseen):
+				raise RuntimeError("=> no checkpoint for clasifier found at '{}'".format(args.classifier))
+			
+			self.model.load_train(args.cseen)
+
+			if args.test_set == 'unseen':
+				ctest = args.cunseen
+			else:
+				ctest = args.call
+
+			if not os.path.isfile(ctest):
+				raise RuntimeError("=> no checkpoint for clasifier found at '{}'".format(ctest))
+
+			print("Classifiers checkpoint successfully loaded from {}, {}".format(args.cseen, ctest))
+
 		# Using CUDA
 		if args.cuda:
 			self.model = torch.nn.DataParallel(self.model, device_ids=self.args.gpu_ids)
 			self.model = self.model.cuda()
-
-		# Loading Classifier (SPNet style)
-		if args.classifier is None:
-			raise NotImplementedError("Classifier should be loaded")
-		else:
-			if not os.path.isfile(args.classifier):
-				raise RuntimeError("=> no checkpoint for clasifier found at '{}'".format(args.classifier))
-			checkpoint = torch.load(args.classifier)
-			s_dict = checkpoint['state_dict']
-			model_dict = {}
-			state_dict = self.classifier.state_dict()
-			for k, v in s_dict.items():
-				if k in state_dict:
-					model_dict[k] = v
-			state_dict.update(model_dict)
-			self.classifier.load_state_dict(state_dict)
-			print("Classifier checkpoint successfully loaded from {}".format(args.classifier))
 
 		# Resuming checkpoint
 		self.best_pred = 0.0
@@ -109,12 +120,16 @@ class Trainer(object):
 		self.model.train()
 		tbar = tqdm(self.train_loader)
 		num_img_tr = len(self.train_loader)
-		if self.isTrained: return
 		for i, sample in enumerate(tbar):
-			image, target = sample['image'].cuda(), sample['label'].cuda()
+			image, target = sample['image'].cuda(), sample['label']
+			if self.args.model == 'deeplabv2':
+				target = resize_target(target, image.shape(2)).cuda()
+			else:
+				target = target.cuda().long()
+			trues = torch.from_numpy(np.array([True] * image.shape[0])).cuda()
 			self.scheduler(self.optimizer, i, epoch, self.best_pred)
 			self.optimizer.zero_grad()
-			output = self.model(image)
+			output = self.model(image, trues)
 			loss = self.criterion(output, target)
 			loss.backward()
 			self.optimizer.step()
@@ -146,17 +161,29 @@ class Trainer(object):
 		tbar = tqdm(self.val_loader, desc='\r')
 		test_loss = 0.0
 		for i, sample in enumerate(tbar):
-			images, targets, names = sample['image'].cuda(), sample['label'].cuda(), sample['name']
+			images, targets, names = sample['image'].cuda(), sample['label'].cuda().long(), sample['name']
+			falses = torch.from_numpy(np.array([False] * image.shape[0])).cuda()
 			with torch.no_grad():
-				outputs = self.model(images)
+				outputs = self.model(images, falses)
+			if self.args.model == 'deeplabv2':
+				outputs = F.interpolate(outputs, size=images.shape[2:], mode="bilinear", align_corners=False)
+				outputs = F.softmax(outputs, dim=1)
+				outputs = outputs.data.cpu().numpy()
+				crf_outputs = np.zeros(outputs.shape)
+				_images = images.data.cpu().numpy().astype(np.uint8)
+				for i, (image, pred) in enumerate(zip(images, outputs)):
+					image = image.transpose(1, 2, 0)
+					crf_outputs[i] = dense_crf(image, pred)
+				outputs = crf_outputs
+
 			loss = self.criterion(outputs, targets)
 			test_loss += loss.item()
 
 			# Score record
 			if self.args.task == 'classification':
 				acc1, acc5 = accuracy(outputs, targets, topk=(1, 5))
-				top1.update(acc1[0], image.size(0))
-				top5.update(acc5[0], image.size(0))
+				top1.update(acc1[0], images.size(0))
+				top5.update(acc5[0], images.size(0))
 			elif self.args.task == 'segmentation':
 				preds = torch.argmax(outputs, axis=1)
 				evaluator.add_batch(targets.cpu().numpy(), preds.cpu().numpy())

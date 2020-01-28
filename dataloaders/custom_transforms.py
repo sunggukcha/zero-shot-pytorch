@@ -52,8 +52,6 @@ class Normalize(object):
 
         if 'label' in sample:
             label = sample['label']
-            if self.seg:
-                label = norm(label)
 
             return {'image': img, 'label': label, 'name': sample['name']}
 

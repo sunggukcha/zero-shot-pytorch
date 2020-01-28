@@ -63,7 +63,9 @@ def get_args():
 	parser.add_argument('--time', default=False, action='store_true')
 
 	# loading checkpoints
-	parser.add_argument('--classifier', type=str, default=None)
+	parser.add_argument('--call', type=str, default=None)
+	parser.add_argument('--cseen', type=str, default=None)
+	parser.add_argument('--cunseen', type=str, default=None)
 	parser.add_argument('--resume', type=str, default=None)
 	
 	# hyper params
