@@ -211,7 +211,7 @@ class Trainer(object):
 			acc = self.evaluator.Pixel_Accuracy()
 			acc_class = self.evaluator.Pixel_Accuracy_Class()
 			miou = self.evaluator.Mean_Intersection_over_Union()
-			fwiou = self.evaluator.Frequency_Weigthed_Intersection_over_Union()
+			fwiou = self.evaluator.Frequency_Weighted_Intersection_over_Union()
 			self.writer.add_scalar('val/Acc', acc, epoch)
 			self.writer.add_scalar('val/Acc_class', acc_class, epoch)
 			self.writer.add_scalar('val/mIoU', miou, epoch)
