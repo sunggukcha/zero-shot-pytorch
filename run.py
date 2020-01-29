@@ -83,6 +83,11 @@ def get_args():
 	parser.add_argument('--weight-decay', type=float, default=1e-4,
 						help='Weight decay')
 
+	# inference
+	parser.add_argument('--id', default=False, action='store_true')
+	parser.add_argument('--color', default=False, action='store_true')
+	parser.add_argument('--examine', default=False, action='store_true')
+
 	return parser.parse_args()
 
 if __name__ == "__main__":

@@ -162,7 +162,7 @@ class Trainer(object):
 		test_loss = 0.0
 		for i, sample in enumerate(tbar):
 			images, targets, names = sample['image'].cuda(), sample['label'].cuda().long(), sample['name']
-			falses = torch.from_numpy(np.array([False] * image.shape[0])).cuda()
+			falses = torch.from_numpy(np.array([False] * images.shape[0])).cuda()
 			with torch.no_grad():
 				outputs = self.model(images, falses)
 			if self.args.model == 'deeplabv2':
@@ -186,7 +186,7 @@ class Trainer(object):
 				top5.update(acc5[0], images.size(0))
 			elif self.args.task == 'segmentation':
 				preds = torch.argmax(outputs, axis=1)
-				evaluator.add_batch(targets.cpu().numpy(), preds.cpu().numpy())
+				self.evaluator.add_batch(targets.cpu().numpy(), preds.cpu().numpy())
 				if self.args.id:
 					self.vs.predict_id(preds, names, self.args.save_dir)
 				if self.args.color:
