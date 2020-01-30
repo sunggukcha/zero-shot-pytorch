@@ -60,19 +60,21 @@ class Visualize(object):
 	def restore(self, images, mean=None, std=None):
 		'''
 			given tensor (images)
-			return restored tensor (images)
+			return restored ndarray (images)
 		'''
 		if mean == None:
 			mean = self.mean
 		if std	== None:
 			std  = self.std
-		images = images.float()
+		images = images.float().cpu().numpy()
 		if 'bdd' in self.dataset:
-			images = images.permute(0, 1).permute(1, 2)
+			images = images.swapaxes(0, 1).swapaxes(1, 2)
 		elif 'pascal' in self.dataset:
-			images = images.permute(0, 2)
+			images = images.swapaxes(1, 3)
 		images = images * std + mean
 		images = images * 255
+		if 'pascal' in self.dataset:
+			images = images.swapaxes(1, 2)
 		return images
 
 	def predict_id(self, preds, names, save_dir='./'):
@@ -90,11 +92,12 @@ class Visualize(object):
 	
 	def predict_color(self, preds, origins, names, save_dir='./'):
 		preds = preds.cpu().numpy()
-		origins = self.restore(origins).cpu().numpy()
+		origins = self.restore(origins)
 		for i in range(len(preds)):
 			pred	= preds[i]
 			origin	= origins[i]
 			name	= names[i]
+			if name[0] == '/': name = name[1:]
 			saveas	= os.path.join(save_dir, name)
 			origin	= origins[i]
 			img	= np.array(self.palette[pred.squeeze()])

@@ -35,7 +35,8 @@ class VOCSegmentation(Dataset):
                  args,
                  base_dir=Path.db_root_dir('pascal'),
                  split='train',
-                 csplit='seen'
+                 csplit='seen',
+                 verbose=True
                  ):
         """
         :param base_dir: path to VOC dataset directory
@@ -112,7 +113,8 @@ class VOCSegmentation(Dataset):
         assert (len(self.images) == len(self.labels))
 
         # Display stats
-        print('Number of images in {}: {:d}'.format(split, len(self.images)))
+        if verbose:
+            print('Number of images in {}: {:d}'.format(split, len(self.images)))
 
     def __len__(self):
         return len(self.images)

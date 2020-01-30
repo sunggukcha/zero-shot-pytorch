@@ -19,8 +19,8 @@ class Model(nn.Module):
 			self.backbone = build_backbone(args)
 			self.deeplab = build_deeplab(args)
 
-		self.classifier_train = Classifier(args.dimension, train_class)
-		self.classifier_test = Classifier(args.dimension, test_class)
+		self.classifier_train = Classifier(args.dimension, train_class, confidence=args.confidence)
+		self.classifier_test = Classifier(args.dimension, test_class, confidence=args.confidence)
 
 	def forward(self, input, train=True):
 		x, low_level_feat = self.backbone(input)
