@@ -236,7 +236,7 @@ class Trainer(object):
 			'''
 			new_score = miou
 
-		if new_score > self.best_pred:
+		if new_score >= self.best_pred:
 			is_best = True
 			self.best_pred = float(new_score)
 			self.saver.save_checkpoint({
