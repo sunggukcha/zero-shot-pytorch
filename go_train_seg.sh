@@ -23,6 +23,7 @@ bs=1
 call='./dataloaders/splits/pascal-ft-common-all.pth'
 cseen='./dataloaders/splits/pascal-ft-common-seen.pth'
 cunseen='./dataloaders/splits/pascal-ft-common-unseen.pth'
+resume='./run/pascal/deeplabv3+-resnet101/experiment_1/checkpoint.pth.tar'
 
 clear
-python -W ignore run.py --task $task --ignore $ignore --dataset $dataset --test-set $test_set --backbone $backbone --model $model --lr $lr --epoch $epoch --batch-size $bs --call $call --cseen $cseen --cunseen $cunseen --weight-decay $decay 
+python -W ignore run.py --task $task --ignore $ignore --dataset $dataset --test-set $test_set --backbone $backbone --model $model --lr $lr --epoch $epoch --batch-size $bs --call $call --cseen $cseen --cunseen $cunseen --weight-decay $decay

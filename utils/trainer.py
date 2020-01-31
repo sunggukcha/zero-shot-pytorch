@@ -119,21 +119,19 @@ class Trainer(object):
 			checkpoint = torch.load(args.resume)
 			args.start_epoch = checkpoint['epoch']
 
-			if args.cuda:
-				pretrained_dict = checkpoint['state_dict']
-				model_dict = {}
-				state_dict = self.model.module.state_dict()
-				for k, v in pretrained_dict.items():
-					if k in state_dict:
-						model_dict[k] = v
-				state_dict.update(model_dict)
-				self.model.module.load_state_dict(state_dict)
-			else:
-				print("Please use CUDA")
-				raise NotImplementedError
+			pretrained_dict = checkpoint['state_dict']
+			model_dict = {}
+			state_dict = self.model.state_dict()
+			for k, v in pretrained_dict.items():
+				if 'classifier' in k: continue
+				if k in state_dict:
+					model_dict[k] = v
+			state_dict.update(model_dict)
+			self.model.load_state_dict(state_dict)
 
 			if not args.ft:
 				self.optimizer.load_state_dict(checkpoint['optimizer'])
+
 			self.best_pred = checkpoint['best_pred']
 			print("Loading {} (epoch {}) successfully done".format(args.resume, checkpoint['epoch']))
 
@@ -142,6 +140,8 @@ class Trainer(object):
 		if args.cuda:
 			self.model = torch.nn.DataParallel(self.model, device_ids=self.args.gpu_ids)
 			self.model = self.model.cuda()
+		else:
+			raise RuntimeError("CUDA SHOULD BE SUPPORTED")
 
 		if args.ft:
 			args.start_epoch = 0
@@ -196,7 +196,7 @@ class Trainer(object):
 				outputs = self.model(images, falses)
 
 			loss = self.criterion(outputs, targets)
-			test_loss += loss.item()
+			#test_loss += loss.item()
 
 			# Score record
 			if self.args.task == 'classification':
