@@ -5,6 +5,7 @@ r'''
     Zero-shot classification & semantic segmentation implementation in PyTorch
 '''
 
+import random
 from utils.tester import Tester
 from utils.trainer import Trainer
 
@@ -131,6 +132,27 @@ if __name__ == "__main__":
 			tester = Tester(args, verbose=False)
 			tester.val()
 			exit()
+			
+			# RANDOM search mode
+			count = 100
+			between = [-10.0, 0.0]
+			score = 0.0
+			mxc = 0
+
+			while count > 0:
+				args.confidence = random.uniform(between[0], between[1])
+				tester = Tester(args, verbose=False)
+				new_score = tester.val()
+				if new_score > 0.0:
+					print("\n\n\n\n\n{}: {}\n\n\n\n\n".format(args.confidence, new_score))
+				if new_score > score:
+					score = new_score
+					mxc = args.confidence
+				else:
+					count -= 1
+			print(score, mxc)
+			exit()
+			'''
 
 			# exponential search mode
 			count = 100
@@ -149,10 +171,10 @@ if __name__ == "__main__":
 				else:
 					count -= 1
 			exit()
-
+			'''
 			# binary search mode
 			count = 100
-			between = [0.00001, 0.5]
+			between = [-0.5, 0]
 
 			args.confidence = between[0]
 			tester = Tester(args, verbose=False)

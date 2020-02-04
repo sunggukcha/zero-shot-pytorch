@@ -134,7 +134,7 @@ class Tester(object):
 			for i in range(preds_np.shape[1]):
 				logits[i] = np.mean(preds_np[:, i, :, :])
 
-			#preds = np.argmax(output, dim=1)
+			preds = torch.argmax(output, axis=1)
 
 			if self.args.id:
 				self.vs.predict_id(preds, names, self.args.save_dir)

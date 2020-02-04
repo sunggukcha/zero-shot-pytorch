@@ -101,6 +101,8 @@ class Trainer(object):
 
 			if args.test_set == 'unseen':
 				ctest = args.cunseen
+			elif args.test_set == 'seen':
+				ctest = args.cseen
 			else:
 				ctest = args.call
 

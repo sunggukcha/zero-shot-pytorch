@@ -50,10 +50,10 @@ class Visualize(object):
 		self.dataset = dataset
 		self.palette = get_palette(dataset)
 		self.bdd_res		= 720, 1280
-		if 'bdd' in dataset:
+		if 'pascal' in dataset:
 			self.std	= np.array([0.229, 0.224, 0.225])
 			self.mean	= np.array([0.485, 0.456, 0.406])
-		elif 'pascal' in dataset:
+		elif 'bdd' in dataset:
 			self.std		= np.array([0.197, 0.198, 0.201])
 			self.mean		= np.array([0.279, 0.293, 0.290])
 
@@ -90,7 +90,7 @@ class Visualize(object):
 			result	= Image.fromarray(pred.astype('uint8'))
 			result.save(saveas)
 	
-	def predict_color(self, preds, origins, names, save_dir='./'):
+	def predict_color(self, preds, origins, names, save_dir='./', image=False):
 		preds = preds.cpu().numpy()
 		origins = self.restore(origins)
 		for i in range(len(preds)):
@@ -102,11 +102,12 @@ class Visualize(object):
 			origin	= origins[i]
 			img	= np.array(self.palette[pred.squeeze()])
 			result	= np.array(np.zeros(origin.shape))
-			#result[pred==0] = origin[pred==0]
-			#result[pred!=0] = origin[pred!=0] /2 + img[pred!=0] /2
-			result[pred!=0] = img[pred!=0]
-			if self.dataset == 'pascal' or self.dataset == 'pascal_toy': result = result.swapaxes(0, 1)
-			result	= Image.fromarray(result.astype('uint8'), 'RGB')
+			if image:
+				result[pred==0] = origin[pred==0]
+				result[pred!=0] = origin[pred!=0] /2 + img[pred!=0] /2
+			else:
+				result[pred!=0] = img[pred!=0]
+			result = Image.fromarray(result.astype('uint8'), 'RGB')
 			result.save(saveas)
 
 	def predict_examine(self, preds, targets, origins, names, save_dir='./'):
